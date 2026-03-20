@@ -28,32 +28,24 @@ module apb_controller(
     input   [31:0]  paddr,
     input           pwrite,
     input   [31:0]  pwdata,
-    output  [31:0]  prdata,
     output          pready,
-    output  [31:0]  pslverr
+    output  [31:0]  pslverr,
+    output  write,
+    output  read
     );
     
     reg             pready_r;
-    reg     [31:0]  slv_reg_r [7:0];
     reg             pslverr_r;
-    reg     [31:0]  prdata_r;
-    reg     [31:0]  pwdata_r;
-    reg     [31:0]  paddr_r;
-    reg             pslverr_r;
-    reg             write;
-    reg             read;
-    integer         i;
+    reg             write_r;
+    reg             read_r;
     
-    //Write ready signal
+    //Write read ready signal
     always @(posedge pclk) begin
         if (~presetn) begin
             pready_r <= 0;
-            for (i = 0; i < 8; i = i + 1) begin
-                slv_reg_r[i] <= 32'hffff;
-            end
         end
         else begin
-            if ((psel == 1) && (pwrite == 1) && (penable == 1)) begin
+            if ((psel == 1) && (penable == 1)) begin
                 pready_r <= 1;
             end
             else begin
@@ -65,17 +57,14 @@ module apb_controller(
     //Write data
     always @(posedge pclk) begin
         if (~presetn) begin
-            for (i = 0; i < 8; i = i + 1) begin
-                slv_reg_r[i] <= {32{1'b1}};
-            end
+            write_r <= 0;
         end
         else begin
-            if (pready_r && psel && penable && pwrite) begin
-                slv_reg_r[paddr] <= pwdata; 
-                write            <= 1;
+            if (psel && penable && pwrite) begin
+                write_r   <= 1;
             end
             else begin
-                write   <= 0;
+                write_r   <= 0;
             end
         end
     end
@@ -84,59 +73,27 @@ module apb_controller(
     always @(posedge pclk) begin
         if (~presetn) begin
             pslverr_r <= 0;
-        end
-        else begin
-            if (pready_r && psel && penable && pwrite && ~pslverr) begin
-                pslverr_r   <= 0;
-            end
-        end
-    end
-    
-    //Read ready signal
-    always @(posedge pclk) begin
-        if (~presetn) begin
-            pready_r <= 0;
-        end
-        else begin
-            if ((psel == 1) && (pwrite == 0) && (penable == 1)) begin
-                pready_r <= 1;
-            end
-            else begin
-                pready_r <= 0;
-            end
         end
     end
     
     //Read data
     always @(posedge pclk) begin
         if (~presetn) begin
-            prdata_r  <= 0;
+            read_r <= 0;
         end
         else begin
-            if (pready_r && psel && penable && ~pwrite) begin
-                prdata_r    <= slv_reg_r[paddr]; 
-                read        <= 1; 
+            if (psel && penable && ~pwrite) begin
+                read_r      <= 1; 
             end
             else begin
-                read    <= 0;
+                read_r      <= 0;
             end
         end
     end
     
-    //Slave error
-    always @(posedge pclk) begin
-        if (~presetn) begin
-            pslverr_r <= 0;
-        end
-        else begin
-            if (pready_r && psel && penable && ~pwrite && ~pslverr) begin
-                pslverr_r   <= 0;
-            end
-        end
-    end
-    
-    assign prdata   = prdata_r;
     assign pslverr  = pslverr_r;
     assign pready   = pready_r;
+    assign write    = write_r;
+    assign read     = read_r;
     
 endmodule
