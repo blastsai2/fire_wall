@@ -28,34 +28,49 @@ module mem_IP_source(
     input   [7:0]  data_i_firewall,
     input   write,
     input   read,
+    input   [10:0] number_byte;
     output  [7:0]  data_o_apb,
     output  [8:0]  data_o_firewall
     );
     
-    reg [8:0]  mem_IP [255:0];
+    reg [7:0]  mem_IP [255:0];
     reg        mem_valid [255:0];
     reg [7:0]  data_o_apb_r;
     reg [8:0]  data_o_firewall_r;
+    reg [7:0]  user_ID;
+    reg [7:0]  IP_addr;
     integer i;
     
     //APB write and read; firewall read mem
     always @(posedge clk) begin
         if (~resetn) begin
             data_o_apb_r        <= 0;
-            data_o_firewall_r   <= 0;
         end
         else begin
             data_o_apb_r    <= 0;
             
             if (write) begin
-                mem_IP[addr_i_apb] <= data_i_apb;
+                case (paddr[3:2])
+                    2'b00: user_ID <= data_i_apb;
+                    2'b01: IP_addr <= data_i_apb;
+                    2'b10: ;
+                    2'b11: ;
+                endcase
+                mem_IP[user_ID] <= ID_addr;
             end
             else if (read) begin
-                data_o_apb_r  <= mem_IP[addr_i_apb][7:0];
+                case (paddr[3:2])
+                    2'b00: data_o_apb_r <= mem_IP[data_i_apb];
+                    2'b01: ;
+                    2'b10: ;
+                    2'b11: ;
+                endcase
             end
-            
-            data_o_firewall_r <= mem_IP[data_i_firewall];
         end
+    end
+
+    always @(posedge clk) begin
+        data_o_firewall_r   <= 0;
     end
     
     assign data_o_apb = data_o_apb_r;

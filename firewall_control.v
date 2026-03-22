@@ -31,7 +31,8 @@ module firewall_control(
     output  [7:0]  user_ID,
     output  [7:0]  data_o,
     output  valid_o,
-    output  last_o
+    output  last_o,
+    output  [10:0] number_byte;
     );
     
     wire valid_ID;
@@ -46,9 +47,9 @@ module firewall_control(
     reg  [7:0]  data_o_r;
     reg  valid_o_r;
     reg  last_o_r;
-    reg  [1:0]  counter;
-    reg  [1:0]  counter_1;
-    reg  [1:0]  counter_2;
+    reg  [10:0]  counter;
+    reg  [10:0]  counter_1;
+    reg  [10:0]  counter_2;
     
     //Set delay signal
     always @(posedge clk) begin
@@ -120,4 +121,5 @@ module firewall_control(
     assign data_o = data_o_r;
     assign valid_o = valid_o_r;
     assign last_o = last_o_r;
+    assign number_byte = counter;
 endmodule

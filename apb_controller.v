@@ -61,13 +61,15 @@ module apb_controller(
         end
         else begin
             if (psel && penable && pwrite) begin
-                write_r   <= 1;
+                write_r   <= 1;   
             end
             else begin
                 write_r   <= 0;
             end
         end
     end
+
+    //
     
     //Slave error
     always @(posedge pclk) begin
