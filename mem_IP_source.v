@@ -28,7 +28,7 @@ module mem_IP_source(
     input   [7:0]  data_i_firewall,
     input   write,
     input   read,
-    input   [10:0] number_byte;
+    input   [10:0] number_byte,
     output  [7:0]  data_o_apb,
     output  [8:0]  data_o_firewall
     );
