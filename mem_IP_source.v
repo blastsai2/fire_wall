@@ -69,8 +69,12 @@ module mem_IP_source(
         end
     end
 
+    //Search IP address
     always @(posedge clk) begin
         data_o_firewall_r   <= 0;
+        if (number_byte == 2) begin
+        
+end
     end
     
     assign data_o_apb = data_o_apb_r;
