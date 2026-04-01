@@ -25,15 +25,15 @@ module mem_IP_source(
     input   resetn,
     input   [7:0]  addr_i_apb,
     input   [8:0]  data_i_apb,
-    input   [7:0]  data_i_firewall,
+    input   [47:0] data_i_firewall,
     input   write,
     input   read,
-    input   [10:0] number_byte,
+    input   [10:0] number_byte;
     output  [7:0]  data_o_apb,
     output  [8:0]  data_o_firewall
     );
     
-    reg [7:0]  mem_IP [255:0];
+    reg [383:0] mem_IP [255:0];
     reg        mem_valid [255:0];
     reg [7:0]  data_o_apb_r;
     reg [8:0]  data_o_firewall_r;
@@ -66,15 +66,19 @@ module mem_IP_source(
                     2'b11: ;
                 endcase
             end
+            if (number_byte == 6) begin
+                i   <= i + 1;
+                if (data_i_firewall == mem_IP[i][47:0] || data_i_firewall == mem_IP[i][95:48]
+                 data_i_firewall == mem_IP[i][143:96] || data_i_firewall == mem_IP[i][191:144]
+                 || data_i_firewall == mem_IP[i][239:192] || data_i_firewall == mem_IP[i][287:240]
+                 || data_i_firewall == mem_IP[i][335:288] || data_i_firewall == mem_IP[i][383:336])
+
+            end
         end
     end
 
-    //Search IP address
     always @(posedge clk) begin
         data_o_firewall_r   <= 0;
-        if (number_byte == 2) begin
-        
-end
     end
     
     assign data_o_apb = data_o_apb_r;
