@@ -1,87 +1,145 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 03/18/2026 03:03:15 PM
-// Design Name: 
-// Module Name: mem_IP_source
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
 
 module mem_IP_source(
-    input   clk,
-    input   resetn,
-    input   [7:0]  addr_i_apb,
-    input   [8:0]  data_i_apb,
-    input   [47:0] data_i_firewall,
-    input   write,
-    input   read,
-    input   [10:0] number_byte;
-    output  [7:0]  data_o_apb,
-    output  [8:0]  data_o_firewall
-    );
-    
-    reg [383:0] mem_IP [255:0];
-    reg        mem_valid [255:0];
-    reg [7:0]  data_o_apb_r;
-    reg [8:0]  data_o_firewall_r;
-    reg [7:0]  user_ID;
-    reg [7:0]  IP_addr;
-    integer i;
-    
-    //APB write and read; firewall read mem
+    input           clk,
+    input           resetn,
+
+    // APB
+    input    [7:0]  addr_i_apb,
+    input    [31:0] data_i_apb,
+    input           write,
+    input           read,
+    output   [7:0]  data_o_apb,
+
+    // Firewall
+    input    [47:0] data_i_firewall,
+    input           search,
+    input           end_packet,
+    output   [8:0]  data_o_firewall,
+    output   valid,
+    output   done
+);
+
+    reg [383:0] mem_IP [31:0]; 
+    reg [7:0] data_o_apb_r;
+    reg [7:0] user_ID;
+    reg [31:0] IP_addr_low;
+    reg [15:0] IP_addr_high;
+    reg done_r;
+
     always @(posedge clk) begin
         if (~resetn) begin
-            data_o_apb_r        <= 0;
-        end
-        else begin
-            data_o_apb_r    <= 0;
-            
+            data_o_apb_r <= 0;
+            user_ID      <= 0;
+            IP_addr_low      <= 0;
+            IP_addr_high      <= 0;
+        end else begin
+            data_o_apb_r <= 0;
+
             if (write) begin
-                case (paddr[3:2])
+                case (addr_i_apb[3:2])
                     2'b00: user_ID <= data_i_apb;
-                    2'b01: IP_addr <= data_i_apb;
-                    2'b10: ;
-                    2'b11: ;
+                    2'b01: IP_addr_low <= data_i_apb;
+                    2'b10: IP_addr_high <= data_i_apb[15:0];
+                    2'b11: if (data_i_apb[0]) begin
+                                mem_IP[user_ID >> 3][user_ID[2:0]*48+:48] <= {IP_addr_high, IP_addr_low};
+                           end
+                    default: ;
                 endcase
-                mem_IP[user_ID] <= ID_addr;
             end
             else if (read) begin
-                case (paddr[3:2])
-                    2'b00: data_o_apb_r <= mem_IP[data_i_apb];
-                    2'b01: ;
-                    2'b10: ;
-                    2'b11: ;
+                case (addr_i_apb[3:2])
+//                    2'b00: data_o_apb_r <= user_ID;
+//                    2'b01: data_o_apb_r <= IP_addr;
+//                    2'b10: data_o_apb_r <= mem_IP[user_ID][7:0];
+//                    default: data_o_apb_r <= 0;
                 endcase
-            end
-            if (number_byte == 6) begin
-                i   <= i + 1;
-                if (data_i_firewall == mem_IP[i][47:0] || data_i_firewall == mem_IP[i][95:48]
-                 data_i_firewall == mem_IP[i][143:96] || data_i_firewall == mem_IP[i][191:144]
-                 || data_i_firewall == mem_IP[i][239:192] || data_i_firewall == mem_IP[i][287:240]
-                 || data_i_firewall == mem_IP[i][335:288] || data_i_firewall == mem_IP[i][383:336])
-
             end
         end
     end
 
-    always @(posedge clk) begin
-        data_o_firewall_r   <= 0;
-    end
-    
     assign data_o_apb = data_o_apb_r;
+
+    reg [1:0] state;
+    localparam IDLE   = 2'd0;
+    localparam SEARCH = 2'd1;
+    localparam DONE   = 2'd2;
+
+    reg [7:0] i;
+    reg [8:0] result;
+    reg       valid_r;
+    reg [3:0] k;
+
+    always @(posedge clk) begin
+        if (~resetn) begin
+            state  <= IDLE;
+            i      <= 0;
+            result <= 0;
+            valid_r <= 0;
+            done_r <= 0;
+        end else begin
+            if (end_packet) begin
+                done_r <= 0;
+            end
+        
+            case (state)
+
+            IDLE:
+            begin
+                valid_r <= 0;
+                if (search) begin
+                    i     <= 0;
+                    state <= SEARCH;
+                end
+            end
+
+            SEARCH: begin
+                valid_r <= 0;
+                done_r  <= 0;
+        
+                // check 8 entries trong 1 row
+                for (k = 0; k < 8; k = k + 1) begin
+                    if (data_i_firewall == mem_IP[i][k*48 +: 48]) begin
+                        result  <= (i << 3) + k;   // i*8 + k
+                        valid_r <= 1;
+                        done_r  <= 1;
+                        state   <= DONE;
+                    end
+                end
+        
+                // nếu chưa match thì sang row tiếp
+                if (i == 8'd31) begin
+                    state <= DONE;   // không tìm thấy
+                    done_r <= 1;
+                end 
+                else begin
+                    i <= i + 1;
+                end
+            end
+
+            DONE:
+            begin
+                valid_r <= 0;
+                state <= IDLE;
+                done_r <= 0;
+            end
+
+            endcase
+        end
+    end
+
+    reg [8:0] data_o_firewall_r;
+
+    always @(posedge clk) begin
+        if (~resetn) begin
+            data_o_firewall_r <= 0;
+        end else if (state == DONE && valid_r) begin
+            data_o_firewall_r <= result;
+        end
+    end
+
     assign data_o_firewall = data_o_firewall_r;
-    
+    assign valid = valid_r;
+    assign done = done_r;
+
 endmodule

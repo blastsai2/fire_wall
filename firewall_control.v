@@ -26,22 +26,28 @@ module firewall_control(
     input   valid,
     input   last,
     input   [7:0]  data,
+    output  [47:0] IP_address,
     input   [8:0]  ID_mem,
     input   done_check,
+    input   valid_IP,
+    input   done,
+    output  end_packet,
     output  [7:0]  user_ID,
     output  [7:0]  data_o,
     output  valid_o,
     output  last_o,
-    output  [10:0] number_byte;
+    output  write_fifo,
+    output  read_fifo,
+    output  drop,
+    output  [9:0] data_i_fifo,
+    input  [9:0] data_o_fifo,
+    output  search
     );
     
-    wire valid_ID;
-    reg  [7:0]  data_1;
-    reg  [7:0]  data_2;
-    reg  valid_1;
-    reg  valid_2;
-    reg  last_1;
-    reg  last_2;
+    reg  search_r;
+    reg  drop_r;
+    reg  write_fifo_r;
+    reg  read_fifo_r;
     
     reg  [7:0]  user_ID_r;
     reg  [7:0]  data_o_r;
@@ -51,29 +57,10 @@ module firewall_control(
     reg  [10:0]  counter_1;
     reg  [10:0]  counter_2;
     
-    //Set delay signal
-    always @(posedge clk) begin
-        if (~rstn) begin
-            data_1 <= 0;
-            data_2 <= 0;
-            counter_1 <= 0;
-            counter_2 <= 0;
-            valid_1 <= 0;
-            valid_2 <= 0;
-            last_1 <= 0;
-            last_2 <= 0;
-        end 
-        else begin
-            data_1 <= data;
-            data_2 <= data_1;
-            counter_1 <= counter;
-            counter_2 <= counter_1;
-            valid_1 <= valid;
-            valid_2 <= valid_1;
-            last_1 <= last;
-            last_2 <= last_1;
-        end
-    end
+    reg [9:0] data_i_fifo_r;
+    reg [47:0] IP_address_r;
+    reg [2:0] count_byte;
+
     
     //Counter signal to detect byte IP source
     always @(posedge clk) begin
@@ -82,16 +69,90 @@ module firewall_control(
         end
         else begin
             if (valid) begin
-                counter <= counter + 1;
-            end
-            else begin
-                counter <= 0;
+                if (last) begin
+                    counter <= 0;
+                end
+                else begin
+                    counter <= counter + 1;
+                end
             end
         end
     end
     
-    assign valid_ID = (counter == 2) ? ((counter == 2) && (ID_mem != 9'h1ff)) : valid_ID; //signal valid for dectect byte IP source
-    //Check valid for IP source and gen output
+    //Extract IP address from packet
+    always @(posedge clk) begin
+        if (~rstn) begin
+            IP_address_r <= 0;
+            count_byte   <= 0;
+        end
+        else begin
+            if (valid && counter >= 6 && counter <=11) begin
+                IP_address_r <= {data, IP_address_r[47:8]};
+            end
+        end
+    end
+    
+    //Search signal
+    always @(posedge clk) begin
+        if (~rstn) begin
+            search_r <= 0;
+        end
+        else begin
+            if (counter == 11) begin
+                search_r <= 1;
+            end
+            else if (done) begin
+                search_r <= 0;
+            end
+        end
+    end
+    
+    //Drop for FIFO
+    always @(posedge clk) begin
+        if (~rstn) begin
+            drop_r <= 0;
+        end
+        else begin
+            if (done && ~valid_IP) begin
+                drop_r <= 1;
+            end
+            else if (done && valid_IP) begin
+                drop_r <= 0;
+            end
+            if (data_o_fifo[9]) begin
+                drop_r <= 0;
+            end
+        end
+    end
+    
+    //Write FIFO
+    always @(posedge clk) begin
+        if (~rstn) begin
+            write_fifo_r <= 0;
+            data_i_fifo_r <= 0;
+        end
+        else begin
+            write_fifo_r  <= valid;
+            data_i_fifo_r <= {last, valid, data};
+        end
+    end
+    
+    //Read FIFO
+    always @(posedge clk) begin
+        if (~rstn) begin
+            read_fifo_r <= 0;
+        end
+        else begin
+            if (done && valid_IP) begin
+                read_fifo_r <= 1;
+            end
+            if (data_o_fifo[9]) begin
+                read_fifo_r <= 0;
+            end
+        end
+    end
+    
+    //Gen output
     always @(posedge clk) begin
         if (~rstn) begin
             data_o_r    <= 0;
@@ -100,20 +161,10 @@ module firewall_control(
             user_ID_r   <= 0;
         end
         else begin
-            valid_o_r <= 0;
-            last_o_r  <= 0;
-            
-            if (valid_ID && valid_2) begin
-                user_ID_r <= ID_mem[7:0];
-                valid_o_r   <= valid_2;
-                last_o_r    <= last_2;
-                if (counter_2 != 1) begin
-                    data_o_r    <= data_2;
-                end
-                else begin
-                    data_o_r    <= 0;
-                end
-            end
+            valid_o_r <= data_o_fifo[8];
+            last_o_r  <= data_o_fifo[9];
+            data_o_r  <= data_o_fifo[7:0];
+            user_ID_r <= ID_mem;
         end
     end
     
@@ -121,5 +172,11 @@ module firewall_control(
     assign data_o = data_o_r;
     assign valid_o = valid_o_r;
     assign last_o = last_o_r;
-    assign number_byte = counter;
+    assign search = search_r;
+    assign drop = drop_r;
+    assign write_fifo = write_fifo_r;
+    assign read_fifo = read_fifo_r;
+    assign data_i_fifo = data_i_fifo_r;
+    assign IP_address = IP_address_r;
+    assign end_packet = last_o_r;
 endmodule
