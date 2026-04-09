@@ -108,11 +108,14 @@ module firewall(
         .rstn(presetn),
         .drop(drop),
 
-        .wr_en(write_fifo),
+        .wr_en(valid),
         .rd_en(read_fifo),
 
-        .din(data_i_fifo),
+        .din({last, valid, data}),
         .dout(data_o_fifo),
+
+//        .din(data_i_fifo),
+//        .dout(write_fifo),
 
         .full(),
         .empty()

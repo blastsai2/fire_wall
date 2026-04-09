@@ -60,6 +60,8 @@ module firewall_control(
     reg [9:0] data_i_fifo_r;
     reg [47:0] IP_address_r;
     reg [2:0] count_byte;
+    reg       read_fifo_r_1;
+    reg       read_fifo_r_2;
 
     
     //Counter signal to detect byte IP source
@@ -119,7 +121,7 @@ module firewall_control(
             else if (done && valid_IP) begin
                 drop_r <= 0;
             end
-            if (data_o_fifo[9]) begin
+            if (last) begin
                 drop_r <= 0;
             end
         end
@@ -143,10 +145,12 @@ module firewall_control(
             read_fifo_r <= 0;
         end
         else begin
-            if (done && valid_IP) begin
+            read_fifo_r_1 <= done && valid_IP;
+            read_fifo_r_2 <= read_fifo_r_1;
+            if (read_fifo_r_1 & ~read_fifo_r_2) begin
                 read_fifo_r <= 1;
             end
-            if (data_o_fifo[9]) begin
+            if (done && ~valid_IP) begin
                 read_fifo_r <= 0;
             end
         end
@@ -175,7 +179,7 @@ module firewall_control(
     assign search = search_r;
     assign drop = drop_r;
     assign write_fifo = write_fifo_r;
-    assign read_fifo = read_fifo_r;
+    assign read_fifo = read_fifo_r ? (data_o_fifo[9] ? 0 : 1) : 0;
     assign data_i_fifo = data_i_fifo_r;
     assign IP_address = IP_address_r;
     assign end_packet = last_o_r;
