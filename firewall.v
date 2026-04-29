@@ -42,9 +42,10 @@ module firewall(
     output  [7:0]   user_id
     );
     
-    wire [7:0]  prdata_r;
-    wire write_r;
-    wire read_r;
+    wire [7:0]  prdata_w;
+    wire ready_w;
+    wire write_w;
+    wire read_w;
     wire [8:0]   ID_mem; 
     
     wire [47:0] IP_address;
@@ -60,6 +61,9 @@ module firewall(
     wire done;
     wire valid_IP;
     
+    wire [7:0]  user_id_w;
+    wire valid_o_w;
+    
     apb_controller u_apb_ctrl (
         .pclk(pclk),  
         .presetn(presetn),
@@ -68,10 +72,10 @@ module firewall(
         .paddr(paddr),  
         .pwrite(pwrite), 
         .pwdata(pwdata), 
-        .pready(pready), 
+        .pready(ready_w), 
         .pslverr(pslverr),
-        .write(write_r),
-        .read(read_r)
+        .write(write_w),
+        .read(read_w)
     );
     
     firewall_control u_firewall_control(
@@ -87,10 +91,10 @@ module firewall(
         .done(done),
         .valid_IP(valid_IP),
 
-        .user_ID(user_id),
+        .user_ID(user_id_w),
 
         .data_o(data_o), 
-        .valid_o(valid_o),   
+        .valid_o(valid_o_w),   
         .last_o(last_o),
 
         .write_fifo(write_fifo),
@@ -103,10 +107,13 @@ module firewall(
         .search(search)            
     );
     
-    fifo u_fifo(
+    fifo #(
+        .WIDTH(10),
+        .DEPTH(64)
+    ) u_fifo
+    (
         .clk(pclk),
         .rstn(presetn),
-        .drop(drop),
 
         .wr_en(valid),
         .rd_en(read_fifo),
@@ -121,26 +128,32 @@ module firewall(
         .empty()
     );
     
-    mem_IP_source u_mem(
+    mem_control u_mem_control(
         .clk(pclk),
-        .resetn(presetn),
+        .rstn(presetn),
 
-        .addr_i_apb(paddr[7:0]),
-        .data_i_apb(pwdata),
+        .wr_addr_apb(paddr[7:0]),
+        .wr_data_apb(pwdata),
+        .wr_en_apb(write_w),
+        .ready_apb(ready_w),
 
-        .data_i_firewall(IP_address),
-
-        .write(write_r),
-        .read(read_r),
         .search(search),
-
-        .data_o_apb(prdata_r),
-        .data_o_firewall(ID_mem),
+        .user_ID(ID_mem),
+        .data_fw(IP_address),
 
         .done(done),
-        .valid(valid_IP),
-        .end_packet(last)
+        .valid(valid_IP)
     );
     
-    assign prdata = {24'b0, prdata_r};
+    counter_data u_counter_data (
+        .clk(pclk),
+        .rstn(presetn),
+        .wr_en(valid_o_w),
+        .wr_addr(user_id_w)
+    );
+    
+    assign prdata = {24'b0, prdata_w};
+    assign valid_o = valid_o_w;
+    assign user_id = user_id_w;
+    assign pready  = ready_w;
 endmodule

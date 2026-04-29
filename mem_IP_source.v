@@ -18,6 +18,7 @@ module mem_IP_source(
     output   [8:0]  data_o_firewall,
     output   valid,
     output   done
+    
 );
 
     reg [383:0] mem_IP [31:0]; 
@@ -27,26 +28,36 @@ module mem_IP_source(
     reg [15:0] IP_addr_high;
     reg done_r;
 
+    //Mem control signal
+    reg [47 : 0]    wr_mem_cfg_data_tmp;
+    reg             wr_mem_cfg_en;
+    reg             rd_mem_cfg_en;
+    reg [31 : 0]    wr_mem_cfg_addr;
+    reg [31 : 0]    rd_mem_cfg_addr;
+    reg [391 : 0]   wr_mem_cfg_data;
+    reg [391 : 0]   rd_mem_cfg_data;
+
+
     always @(posedge clk) begin
         if (~resetn) begin
             data_o_apb_r <= 0;
-            user_ID      <= 0;
-            IP_addr_low      <= 0;
-            IP_addr_high      <= 0;
         end else begin
             data_o_apb_r <= 0;
-
-            if (write) begin
+            
                 case (addr_i_apb[3:2])
-                    2'b00: user_ID <= data_i_apb;
-                    2'b01: IP_addr_low <= data_i_apb;
-                    2'b10: IP_addr_high <= data_i_apb[15:0];
-                    2'b11: if (data_i_apb[0]) begin
-                                mem_IP[user_ID >> 3][user_ID[2:0]*48+:48] <= {IP_addr_high, IP_addr_low};
-                           end
+                    2'b00: begin 
+                        wr_mem_cfg_addr                 <= data_i_apb >> 3;
+                        rd_mem_cfg_addr                 <= data_i_apb >> 3;
+                    end
+                    2'b01: wr_mem_cfg_data_tmp[31 : 0]  <= data_i_apb;
+                    2'b10: begin 
+                        wr_mem_cfg_data_tmp[47 : 32]    <= data_i_apb[15:0];
+                        rd_mem_cfg_en                   <= 1;
+                        state_apb_mem                   <= 1;
+                    end
                     default: ;
                 endcase
-            end
+
             else if (read) begin
                 case (addr_i_apb[3:2])
 //                    2'b00: data_o_apb_r <= user_ID;
@@ -57,6 +68,8 @@ module mem_IP_source(
             end
         end
     end
+    
+//    mem
 
     assign data_o_apb = data_o_apb_r;
 

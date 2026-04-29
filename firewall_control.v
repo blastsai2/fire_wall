@@ -85,7 +85,6 @@ module firewall_control(
     always @(posedge clk) begin
         if (~rstn) begin
             IP_address_r <= 0;
-            count_byte   <= 0;
         end
         else begin
             if (valid && counter >= 6 && counter <=11) begin
@@ -145,14 +144,22 @@ module firewall_control(
             read_fifo_r <= 0;
         end
         else begin
-            read_fifo_r_1 <= done && valid_IP;
-            read_fifo_r_2 <= read_fifo_r_1;
-            if (read_fifo_r_1 & ~read_fifo_r_2) begin
+            if (done) begin
                 read_fifo_r <= 1;
             end
-            if (done && ~valid_IP) begin
+            if (data_o_fifo[9]) begin
                 read_fifo_r <= 0;
             end
+        
+//            if (done && valid_IP) begin
+//                read_fifo_r <= 1;
+//            end
+//            if (done && ~valid_IP) begin
+//                read_fifo_r <= 0;
+//            end
+//            if (data_o_fifo[9]) begin
+//                read_fifo_r <= 0;
+//            end
         end
     end
     
@@ -165,10 +172,16 @@ module firewall_control(
             user_ID_r   <= 0;
         end
         else begin
-            valid_o_r <= data_o_fifo[8];
-            last_o_r  <= data_o_fifo[9];
             data_o_r  <= data_o_fifo[7:0];
             user_ID_r <= ID_mem;
+            if (~drop & data_o_fifo[9]) begin
+                last_o_r  <= data_o_fifo[9];
+                valid_o_r <= data_o_fifo[8];
+            end
+            else begin
+                valid_o_r <= 0;
+                last_o_r <= 0;
+            end
         end
     end
     
@@ -177,9 +190,9 @@ module firewall_control(
     assign valid_o = valid_o_r;
     assign last_o = last_o_r;
     assign search = search_r;
-    assign drop = drop_r;
+//    assign drop = drop_r;
     assign write_fifo = write_fifo_r;
-    assign read_fifo = read_fifo_r ? (data_o_fifo[9] ? 0 : 1) : 0;
+    assign read_fifo = read_fifo_r & ~data_o_fifo[9];
     assign data_i_fifo = data_i_fifo_r;
     assign IP_address = IP_address_r;
     assign end_packet = last_o_r;

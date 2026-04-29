@@ -1,22 +1,25 @@
 `timescale 1ns / 1ps
 
-module fifo(
+module fifo #(
+    parameter WIDTH = 3,
+    parameter DEPTH = 8
+)
+(
    input    clk, 
    input    rstn, 
-   input    drop,
    input    wr_en,
    input    rd_en, 
-   input    [9:0] din, 
-   output   reg [9:0] dout, 
+   input    [WIDTH - 1 : 0]     din, 
+   output   reg [WIDTH - 1 : 0] dout, 
    output   full, 
    output   empty 
 );
-   reg [9:0] mem [63:0]; 
-   reg [5:0] wptr; 
-   reg [5:0] rptr; 
-   reg [6:0] count;
+   reg [WIDTH - 1 : 0]          mem [DEPTH - 1 : 0]; 
+   reg [$clog2(DEPTH) - 1 : 0]  wptr; 
+   reg [$clog2(DEPTH) - 1 : 0]  rptr; 
+   reg [$clog2(DEPTH) : 0]      count;
    always @(posedge clk or negedge rstn) begin
-       if (!rstn || drop) begin
+       if (!rstn) begin
            wptr <= 0;
            rptr <= 0;
            count <= 0;
@@ -28,9 +31,6 @@ module fifo(
            if (rd_en && !empty) begin
                dout <= mem[rptr]; 
                rptr <= rptr + 1; 
-           end
-           else begin
-               dout <= 0;
            end
            
            if (wr_en && !full) begin
@@ -46,6 +46,6 @@ module fifo(
            end
        end
    end
-   assign full = (count == 64); 
+   assign full = (count == DEPTH); 
    assign empty = (count == 0); 
 endmodule

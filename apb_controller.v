@@ -28,7 +28,7 @@ module apb_controller(
     input   [31:0]  paddr,
     input           pwrite,
     input   [31:0]  pwdata,
-    output          pready,
+    input           pready,
     output  [31:0]  pslverr,
     output  write,
     output  read
@@ -40,19 +40,19 @@ module apb_controller(
     reg             read_r;
     
     //Write read ready signal
-    always @(posedge pclk) begin
-        if (~presetn) begin
-            pready_r <= 0;
-        end
-        else begin
-            if ((psel == 1) && (penable == 1)) begin
-                pready_r <= 1;
-            end
-            else begin
-                pready_r <= 0;
-            end
-        end
-    end
+//    always @(posedge pclk) begin
+//        if (~presetn) begin
+//            pready_r <= 0;
+//        end
+//        else begin
+//            if ((psel == 1) && (penable == 1)) begin
+//                pready_r <= 1;
+//            end
+//            else begin
+//                pready_r <= 0;
+//            end
+//        end
+//    end
     
     //Write data
     always @(posedge pclk) begin
@@ -94,7 +94,7 @@ module apb_controller(
     end
     
     assign pslverr  = pslverr_r;
-    assign pready   = pready_r;
+//    assign pready   = pready_r;
     assign write    = write_r;
     assign read     = read_r;
     
